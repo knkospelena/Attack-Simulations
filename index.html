@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SOC Attack Simulation | BN301</title>
+  <meta name="description" content="SOC BN301 — Attack Simulation Tool: port scanning, brute force, vuln assessment, evasion techniques."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+/* ── RESET & TOKENS ──────────────────────────────────────── */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg0:#030712;--bg1:#0d111c;--bg2:#111827;--bg3:#1a2236;--bg-card:#0f1623;
+  --border:rgba(99,120,180,.13);--border-hi:rgba(0,212,255,.3);
+  --accent:#00d4ff;--accent2:#7c3aed;--accent3:#10b981;
+  --red:#ef4444;--orange:#f59e0b;--green:#10b981;--purple:#a78bfa;
+  --t1:#e2e8f0;--t2:#94a3b8;--t3:#475569;--t4:#1e293b;
+  --mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif;
+  --r:10px;--tr:all .2s cubic-bezier(.4,0,.2,1);
+}
+
+/* ── GROUP COLOURS ────────────────────────────────────────── */
+:root{
+  --c-recon:#0ea5e9; --c-recon-bg:rgba(14,165,233,.08);
+  --c-evasion:#a855f7; --c-evasion-bg:rgba(168,85,247,.08);
+  --c-vuln:#f97316; --c-vuln-bg:rgba(249,115,22,.08);
+  --c-brute:#ef4444; --c-brute-bg:rgba(239,68,68,.08);
+}
+
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg0);color:var(--t1);min-height:100vh;overflow-x:hidden}
+
+/* grid bg */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(99,120,180,.04)1px,transparent 1px),
+                   linear-gradient(90deg,rgba(99,120,180,.04)1px,transparent 1px);
+  background-size:40px 40px;
+}
+
+.wrap{max-width:1340px;margin:0 auto;padding:0 22px;position:relative;z-index:1}
+
+/* ── HEADER ──────────────────────────────────────────────── */
+header{
+  background:rgba(13,17,28,.88);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);padding:14px 0;
+  position:sticky;top:0;z-index:200;
+}
+.hdr{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-ic{
+  width:38px;height:38px;border-radius:8px;
+  background:linear-gradient(135deg,#00d4ff1a,#7c3aed1a);
+  border:1px solid rgba(0,212,255,.28);
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+  animation:glow 3s ease-in-out infinite;
+}
+@keyframes glow{0%,100%{box-shadow:0 0 8px rgba(0,212,255,.3)}50%{box-shadow:0 0 22px rgba(0,212,255,.55)}}
+.logo-txt h1{font-size:14px;font-weight:700;letter-spacing:.06em;color:var(--accent)}
+.logo-txt p{font-size:10px;color:var(--t3);font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.hdr-right{display:flex;align-items:center;gap:16px;font-family:var(--mono);font-size:11px;color:var(--t2)}
+.online-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:blink 2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1;box-shadow:0 0 5px var(--green)}50%{opacity:.35;box-shadow:none}}
+
+/* ── LAYOUT ──────────────────────────────────────────────── */
+main{padding:28px 0 60px}
+.layout{display:grid;grid-template-columns:400px 1fr;gap:22px;align-items:start}
+
+/* ── CARD ────────────────────────────────────────────────── */
+.card{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--r);padding:22px;position:relative;overflow:hidden;
+}
+.card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(0,212,255,.4),transparent);
+}
+.card-title{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;
+  color:var(--accent);margin-bottom:18px;font-family:var(--mono);
+  display:flex;align-items:center;gap:6px;
+}
+.card-title::before{content:'//';color:var(--t3)}
+
+/* ── FORM ────────────────────────────────────────────────── */
+.fg{margin-bottom:16px}
+.fl{display:block;font-size:10px;font-weight:600;color:var(--t2);margin-bottom:6px;
+    text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono)}
+.inp-wrap{position:relative}
+.inp-ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--t3);pointer-events:none}
+input[type=text],input[type=password]{
+  width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:7px;padding:10px 12px 10px 36px;color:var(--t1);
+  font-family:var(--mono);font-size:13px;outline:none;transition:var(--tr);
+}
+input[type=text]:focus,input[type=password]:focus{
+  border-color:var(--accent);background:rgba(0,212,255,.05);
+  box-shadow:0 0 0 3px rgba(0,212,255,.1);
+}
+input::placeholder{color:var(--t3)}
+
+/* row of 2 inputs */
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* ── GROUP TABS ──────────────────────────────────────────── */
+.group-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.gtab{
+  font-family:var(--mono);font-size:10px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;
+  padding:5px 12px;border-radius:100px;cursor:pointer;
+  border:1px solid var(--border);background:transparent;
+  color:var(--t3);transition:var(--tr);
+}
+.gtab:hover{color:var(--t2);border-color:rgba(255,255,255,.15)}
+.gtab.active-recon{background:var(--c-recon-bg);border-color:var(--c-recon);color:var(--c-recon)}
+.gtab.active-evasion{background:var(--c-evasion-bg);border-color:var(--c-evasion);color:var(--c-evasion)}
+.gtab.active-vuln{background:var(--c-vuln-bg);border-color:var(--c-vuln);color:var(--c-vuln)}
+.gtab.active-brute{background:var(--c-brute-bg);border-color:var(--c-brute);color:var(--c-brute)}
+.gtab.active-all{background:rgba(0,212,255,.1);border-color:var(--accent);color:var(--accent)}
+
+/* ── ATTACK LIST ─────────────────────────────────────────── */
+.atk-list{
+  display:flex;flex-direction:column;gap:6px;
+  max-height:440px;overflow-y:auto;padding-right:3px;
+}
+.atk-list::-webkit-scrollbar{width:3px}
+.atk-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+.atk-card{
+  background:rgba(255,255,255,.02);border:1px solid var(--border);
+  border-radius:8px;padding:10px 13px;cursor:pointer;
+  transition:var(--tr);display:flex;align-items:flex-start;gap:10px;
+  position:relative;
+}
+.atk-card:hover{border-color:rgba(0,212,255,.2);background:rgba(0,212,255,.03);transform:translateX(2px)}
+.atk-card.sel{border-color:var(--accent);background:rgba(0,212,255,.07);box-shadow:0 0 0 1px rgba(0,212,255,.15)}
+.atk-card.sel::after{content:'●';position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--accent);font-size:7px}
+
+/* group tint on selected */
+.atk-card[data-group=Reconnaissance].sel{border-color:var(--c-recon);background:var(--c-recon-bg)}
+.atk-card[data-group=Evasion].sel{border-color:var(--c-evasion);background:var(--c-evasion-bg)}
+.atk-card[data-group=Vulnerability].sel{border-color:var(--c-vuln);background:var(--c-vuln-bg)}
+.atk-card[data-group="Brute Force"].sel{border-color:var(--c-brute);background:var(--c-brute-bg)}
+
+.atk-icon{width:32px;height:32px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:6px;background:rgba(255,255,255,.04)}.atk-icon svg{width:15px;height:15px;stroke-width:1.8}
+.atk-info{flex:1;min-width:0}
+.atk-name{font-size:12px;font-weight:600;color:var(--t1);margin-bottom:2px}
+.atk-desc{font-size:11px;color:var(--t3);line-height:1.4;margin-bottom:5px}
+.atk-meta{display:flex;gap:5px;flex-wrap:wrap}
+
+.badge{font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:100px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.b-recon{background:rgba(14,165,233,.15);color:#7dd3fc;border:1px solid rgba(14,165,233,.3)}
+.b-evasion{background:rgba(168,85,247,.15);color:#d8b4fe;border:1px solid rgba(168,85,247,.3)}
+.b-vuln{background:rgba(249,115,22,.15);color:#fdba74;border:1px solid rgba(249,115,22,.3)}
+.b-brute{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+.b-low{background:rgba(16,185,129,.12);color:#6ee7b7;border:1px solid rgba(16,185,129,.28)}
+.b-medium{background:rgba(245,158,11,.12);color:#fcd34d;border:1px solid rgba(245,158,11,.28)}
+.b-high{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.28)}
+.b-critical{background:rgba(239,68,68,.25);color:#ff6b6b;border:1px solid rgba(239,68,68,.5)}
+.b-time{background:rgba(99,120,180,.08);color:var(--t2);border:1px solid var(--border)}
+
+/* ── BRUTE FORCE EXTRA FIELDS ────────────────────────────── */
+#bf-fields{
+  display:none;
+  background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.2);
+  border-radius:8px;padding:14px;margin-bottom:14px;
+  animation:fadein .25s ease;
+}
+@keyframes fadein{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+.bf-title{font-size:10px;font-family:var(--mono);color:#fca5a5;text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;font-weight:700}
+
+/* ── LAUNCH BUTTON ───────────────────────────────────────── */
+.btn-launch{
+  width:100%;padding:13px;margin-top:16px;
+  background:linear-gradient(135deg,#0098c7,#0060a0);
+  border:1px solid rgba(0,212,255,.35);border-radius:8px;
+  color:#fff;font-family:var(--mono);font-size:12px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
+  transition:var(--tr);position:relative;overflow:hidden;
+}
+.btn-launch::before{
+  content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);
+  transition:left .4s;
+}
+.btn-launch:hover::before{left:100%}
+.btn-launch:hover{background:linear-gradient(135deg,#00b4d8,#0077b6);box-shadow:0 0 20px rgba(0,212,255,.28);transform:translateY(-1px)}
+.btn-launch:active{transform:none}
+.btn-launch:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+
+/* ── RIGHT PANEL ─────────────────────────────────────────── */
+.right-col{display:flex;flex-direction:column;gap:18px}
+
+/* ── TERMINAL ────────────────────────────────────────────── */
+.term{background:#020408;border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.term-bar{
+  background:var(--bg3);padding:9px 14px;
+  display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);
+}
+.term-dots{display:flex;gap:5px}
+.td{width:10px;height:10px;border-radius:50%}
+.td:nth-child(1){background:#ff5f57}
+.td:nth-child(2){background:#febc2e}
+.td:nth-child(3){background:#28c840}
+.term-lbl{font-family:var(--mono);font-size:11px;color:var(--t3);margin-left:8px}
+.term-body{
+  font-family:var(--mono);font-size:12px;line-height:1.85;
+  padding:14px;min-height:180px;max-height:260px;overflow-y:auto;color:#a8d8a8;
+}
+.term-body::-webkit-scrollbar{width:3px}
+.term-body::-webkit-scrollbar-thumb{background:var(--border)}
+.tl{display:flex;gap:8px}
+.tl.err{color:#fca5a5}
+.tl.info{color:#93c5fd}
+.tl.success{color:#86efac}
+.tl.warn{color:#fcd34d}
+.tp{color:var(--accent);flex-shrink:0}
+.cursor{display:inline-block;width:7px;height:13px;background:var(--accent);animation:cblink 1s step-end infinite;vertical-align:middle}
+@keyframes cblink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* progress */
+.prog-wrap{padding:0 14px 14px}
+.prog-hdr{display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono);color:var(--t3);margin-bottom:6px}
+.prog-bg{height:3px;background:rgba(255,255,255,.05);border-radius:100px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:100px;width:0%;transition:width .5s ease;box-shadow:0 0 8px rgba(0,212,255,.4)}
+
+/* ── RESULTS ─────────────────────────────────────────────── */
+.results-wrap{display:none}
+.results-wrap.vis{display:block}
+
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.stat-box{
+  background:rgba(255,255,255,.02);border:1px solid var(--border);
+  border-radius:8px;padding:14px;text-align:center;
+}
+.stat-val{font-size:26px;font-weight:700;font-family:var(--mono);color:var(--accent);line-height:1;margin-bottom:3px}
+.stat-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--t3)}
+
+.cmd-box{
+  background:#020408;border:1px solid var(--border);border-radius:6px;
+  padding:9px 13px;font-family:var(--mono);font-size:11px;color:#6ee7b7;
+  margin-bottom:14px;word-break:break-all;
+}
+.cmd-box .cmd-sym{color:var(--accent);margin-right:5px}
+
+/* host block */
+.host-blk{background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px}
+.host-hdr{background:var(--bg3);padding:10px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.host-ip{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent)}
+.host-hn{font-size:11px;color:var(--t3)}
+.host-state{margin-left:auto}
+.ports-tbl{width:100%;border-collapse:collapse}
+.ports-tbl th{background:rgba(255,255,255,.03);padding:7px 14px;text-align:left;font-size:9px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--t3);border-bottom:1px solid var(--border);font-weight:600}
+.ports-tbl td{padding:7px 14px;font-size:11px;font-family:var(--mono);border-bottom:1px solid rgba(99,120,180,.05);color:var(--t2)}
+.ports-tbl tr:last-child td{border-bottom:none}
+.ports-tbl tr:hover td{background:rgba(0,212,255,.02)}
+.p-num{color:var(--accent);font-weight:700}
+.p-open{color:var(--green);font-weight:600}
+.p-closed{color:var(--red)}
+.p-filtered{color:var(--orange)}
+.p-svc{color:var(--purple)}
+
+/* OS */
+.os-sec{padding:10px 14px;background:rgba(124,58,237,.05);border-top:1px solid var(--border)}
+.os-title{font-size:9px;font-family:var(--mono);text-transform:uppercase;color:var(--purple);margin-bottom:6px;letter-spacing:.1em}
+.os-row{display:flex;align-items:center;gap:8px;font-size:11px;font-family:var(--mono);color:var(--t2);margin-bottom:3px}
+.os-acc{background:rgba(124,58,237,.2);color:var(--purple);padding:1px 6px;border-radius:4px;font-size:9px}
+
+/* brute force results */
+.bf-results{padding:14px}
+.bf-found-title{font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
+.bf-found-title.yes{color:var(--red)}
+.bf-found-title.no{color:var(--green)}
+.cred-row{
+  background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);
+  border-radius:6px;padding:9px 12px;font-family:var(--mono);font-size:12px;
+  color:#fca5a5;margin-bottom:6px;word-break:break-all;
+}
+.cred-row::before{content:'💥 ';font-size:14px}
+
+/* ── HISTORY ─────────────────────────────────────────────── */
+.hist-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto}
+.hist-item{
+  display:flex;align-items:center;gap:10px;padding:9px 11px;
+  background:rgba(255,255,255,.02);border:1px solid var(--border);
+  border-radius:6px;cursor:pointer;transition:var(--tr);
+}
+.hist-item:hover{border-color:rgba(0,212,255,.2);background:rgba(0,212,255,.03)}
+.hist-ip{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);min-width:105px}
+.hist-atk{font-size:11px;color:var(--t2);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-time{font-size:10px;font-family:var(--mono);color:var(--t3)}
+.hist-tag{font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:100px;white-space:nowrap}
+
+.empty{text-align:center;padding:32px;color:var(--t3)}
+.empty-ic{font-size:36px;margin-bottom:10px;opacity:.25}
+.empty-tx{font-size:12px}
+
+/* alert */
+.alert{padding:10px 14px;border-radius:7px;font-size:12px;font-family:var(--mono);display:flex;align-items:center;gap:9px;margin-bottom:14px;animation:fadein .3s ease}
+.alert-err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5}
+.alert-ok{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:#6ee7b7}
+
+/* spinner */
+.spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(0,212,255,.25);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite;vertical-align:middle}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.divider{display:flex;align-items:center;gap:10px;color:var(--t3);font-size:9px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;margin:0 0 14px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+@media(max-width:920px){.layout{grid-template-columns:1fr}.stats-row{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="wrap">
+    <div class="hdr">
+      <div class="logo">
+        <div class="logo-ic"><i data-lucide="crosshair" style="width:18px;height:18px;color:var(--accent)"></i></div>
+        <div class="logo-txt">
+          <h1>SOC ATTACK SIMULATION</h1>
+          <p>BN301 // Security Operations Center</p>
+        </div>
+      </div>
+      <div class="hdr-right">
+        <div class="online-dot"></div>
+        <span>SYSTEM READY</span>
+        <span style="color:var(--border)">|</span>
+        <span id="clock">--:--:--</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="layout">
+
+      <!-- ── LEFT PANEL ─────────────────────────────────── -->
+      <div>
+        <div class="card" style="margin-bottom:18px">
+          <div class="card-title">Target Configuration</div>
+          <div id="alert-box"></div>
+
+          <!-- IP -->
+          <div class="fg">
+            <label class="fl">Target IP Address / Range</label>
+            <div class="inp-wrap">
+              <i data-lucide="target" class="inp-ico" style="width:14px;height:14px"></i>
+              <input type="text" id="target-ip" placeholder="192.168.1.100 or 192.168.1.0/24" autocomplete="off" spellcheck="false"/>
+            </div>
+          </div>
+
+          <div class="divider">Select Attack Type</div>
+
+          <!-- GROUP FILTER TABS -->
+          <div class="group-tabs">
+            <button class="gtab active-all" data-group="all" onclick="filterGroup('all',this)">All</button>
+            <button class="gtab" data-group="Reconnaissance" onclick="filterGroup('Reconnaissance',this)"><i data-lucide="scan-search" style="width:11px;height:11px;vertical-align:middle"></i> Recon</button>
+            <button class="gtab" data-group="Evasion" onclick="filterGroup('Evasion',this)"><i data-lucide="ghost" style="width:11px;height:11px;vertical-align:middle"></i> Evasion</button>
+            <button class="gtab" data-group="Vulnerability" onclick="filterGroup('Vulnerability',this)"><i data-lucide="crosshair" style="width:11px;height:11px;vertical-align:middle"></i> Vuln</button>
+            <button class="gtab" data-group="Brute Force" onclick="filterGroup('Brute Force',this)"><i data-lucide="hammer" style="width:11px;height:11px;vertical-align:middle"></i> Brute</button>
+          </div>
+
+          <!-- ATTACK LIST -->
+          <div class="atk-list" id="atk-list"></div>
+
+          <!-- BRUTE FORCE EXTRAS (shown when BF attack selected) -->
+          <div id="bf-fields">
+            <div class="bf-title"><i data-lucide="hammer" style="width:11px;height:11px;vertical-align:middle"></i> Brute Force Configuration</div>
+            <div class="row2">
+              <div class="fg" style="margin-bottom:0">
+                <label class="fl">Username (single)</label>
+                <div class="inp-wrap">
+                  <i data-lucide="user" class="inp-ico" style="width:14px;height:14px"></i>
+                  <input type="text" id="bf-user" placeholder="admin" autocomplete="off"/>
+                </div>
+              </div>
+              <div class="fg" style="margin-bottom:0">
+                <label class="fl">Password (single)</label>
+                <div class="inp-wrap">
+                  <i data-lucide="key" class="inp-ico" style="width:14px;height:14px"></i>
+                  <input type="password" id="bf-pass" placeholder="password123" autocomplete="off"/>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:8px;font-size:10px;color:var(--t3);font-family:var(--mono);margin-bottom:10px;letter-spacing:.03em">
+              — or use file paths (on Kali server) —
+            </div>
+            <div class="row2">
+              <div class="fg" style="margin-bottom:0">
+                <label class="fl">Username list path</label>
+                <div class="inp-wrap">
+                  <i data-lucide="file-text" class="inp-ico" style="width:14px;height:14px"></i>
+                  <input type="text" id="bf-ulist" placeholder="/usr/share/wordlists/user.txt" autocomplete="off"/>
+                </div>
+              </div>
+              <div class="fg" style="margin-bottom:0">
+                <label class="fl">Password list path</label>
+                <div class="inp-wrap">
+                  <i data-lucide="file-text" class="inp-ico" style="width:14px;height:14px"></i>
+                  <input type="text" id="bf-plist" placeholder="/usr/share/wordlists/rockyou.txt" autocomplete="off"/>
+                </div>
+              </div>
+            </div>
+            <div class="row2" style="margin-top:8px" id="bf-extra">
+              <div class="fg" style="margin-bottom:0">
+                <label class="fl">Port override</label>
+                <div class="inp-wrap">
+                  <i data-lucide="plug" class="inp-ico" style="width:14px;height:14px"></i>
+                  <input type="text" id="bf-port" placeholder="default" autocomplete="off"/>
+                </div>
+              </div>
+              <div class="fg" style="margin-bottom:0" id="bf-path-wrap">
+                <label class="fl">HTTP path</label>
+                <div class="inp-wrap">
+                  <i data-lucide="globe" class="inp-ico" style="width:14px;height:14px"></i>
+                  <input type="text" id="bf-path" placeholder="/login" autocomplete="off"/>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:10px;font-size:10px;color:#fca5a5;font-family:var(--mono);display:flex;align-items:center;gap:5px">
+              <i data-lucide="alert-triangle" style="width:11px;height:11px;flex-shrink:0"></i> Leave fields empty to use built-in default credentials list.
+            </div>
+          </div>
+
+          <button class="btn-launch" id="launch-btn" onclick="launchScan()">
+            &#x25BA;&nbsp; LAUNCH SIMULATION
+          </button>
+        </div>
+
+        <!-- HISTORY -->
+        <div class="card">
+          <div class="card-title" style="justify-content:space-between;display:flex">
+            <span>// Scan History</span>
+            <button onclick="clearHistory()" style="background:none;border:none;color:var(--t3);font-size:9px;cursor:pointer;font-family:var(--mono);letter-spacing:.05em">CLEAR ALL</button>
+          </div>
+          <div class="hist-list" id="hist-list">
+            <div class="empty"><div class="empty-ic">📋</div><div class="empty-tx">No scans yet</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── RIGHT PANEL ────────────────────────────────── -->
+      <div class="right-col">
+
+        <!-- TERMINAL -->
+        <div class="term">
+          <div class="term-bar">
+            <div class="term-dots"><div class="td"></div><div class="td"></div><div class="td"></div></div>
+            <span class="term-lbl">nmap / hydra — attack-simulation — bash</span>
+          </div>
+          <div class="term-body" id="terminal">
+            <div class="tl info"><span class="tp">soc@sim:~$</span><span>&nbsp;SOC Attack Simulation Tool v2 initialized</span></div>
+            <div class="tl info"><span class="tp">soc@sim:~$</span><span>&nbsp;Modules: nmap (scanning) + hydra (brute force) loaded</span></div>
+            <div class="tl"><span class="tp">soc@sim:~$</span><span>&nbsp;<span class="cursor"></span></span></div>
+          </div>
+          <div class="prog-wrap">
+            <div class="prog-hdr"><span id="scan-lbl">IDLE</span><span id="scan-pct">0%</span></div>
+            <div class="prog-bg"><div class="prog-fill" id="prog-fill"></div></div>
+          </div>
+        </div>
+
+        <!-- RESULTS -->
+        <div class="card results-wrap" id="results-wrap">
+          <div class="card-title">Simulation Results</div>
+          <div id="results-body"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── globals ──
+let selectedAttack = null;
+let attackTypes    = {};
+let pollTimer      = null;
+let logSeenCount   = 0;
+let activeGroup    = 'all';
+
+// ── clock ──
+setInterval(()=>{
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US',{hour12:false});
+},1000);
+
+// ── load attack types ──
+async function loadAttackTypes(){
+  const r = await fetch('/api/attack-types');
+  attackTypes = await r.json();
+  renderList();
+}
+
+const GROUP_ORDER = ['Reconnaissance','Evasion','Vulnerability','Brute Force'];
+
+function groupColor(g){
+  const m = {Reconnaissance:'b-recon',Evasion:'b-evasion',Vulnerability:'b-vuln','Brute Force':'b-brute'};
+  return m[g]||'b-recon';
+}
+function riskClass(r){
+  return 'b-'+r.toLowerCase();
+}
+
+// group → lucide icon for headers
+const GROUP_ICONS = {
+  Reconnaissance:'scan-search', Evasion:'ghost',
+  Vulnerability:'crosshair', 'Brute Force':'hammer'
+};
+// token color per group for icon bg
+const GROUP_IC_CLR = {
+  Reconnaissance:'var(--c-recon)', Evasion:'var(--c-evasion)',
+  Vulnerability:'var(--c-vuln)', 'Brute Force':'var(--c-brute)'
+};
+
+function renderList(){
+  const list = document.getElementById('atk-list');
+  list.innerHTML='';
+  const grouped = {};
+  GROUP_ORDER.forEach(g=>grouped[g]=[]);
+  Object.entries(attackTypes).forEach(([id,a])=>{
+    (grouped[a.group]||(grouped[a.group]=[])).push({id,...a});
+  });
+
+  GROUP_ORDER.forEach(group=>{
+    const items = (grouped[group]||[]).filter(a=>{
+      if(activeGroup==='all') return true;
+      return a.group===activeGroup;
+    });
+    if(!items.length) return;
+
+    if(activeGroup==='all'){
+      const hdr = document.createElement('div');
+      const clr = GROUP_IC_CLR[group]||'var(--t3)';
+      hdr.style.cssText=`font-size:9px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.12em;color:${clr};padding:8px 4px 4px;font-weight:700;border-top:1px solid var(--border);margin-top:4px;display:flex;align-items:center;gap:6px`;
+      if(!list.children.length){
+        hdr.style.borderTop='none';hdr.style.marginTop='0';hdr.style.paddingTop='0';
+      }
+      hdr.innerHTML=`<i data-lucide="${GROUP_ICONS[group]||'layers'}" style="width:10px;height:10px"></i>${group}`;
+      list.appendChild(hdr);
+    }
+
+    items.forEach(a=>{
+      const card = document.createElement('div');
+      card.className='atk-card'+(selectedAttack===a.id?' sel':'');
+      card.dataset.group=a.group;
+      card.dataset.id=a.id;
+      card.onclick=()=>selectAttack(a.id,a.group);
+      const rc = riskClass(a.risk);
+      const gc = groupColor(a.group);
+      const icClr = GROUP_IC_CLR[a.group]||'var(--accent)';
+      const toolBadge = a.tool==='hydra'?'<span class="badge b-brute" style="opacity:.8"><i data-lucide="zap" style="width:8px;height:8px;vertical-align:middle"></i> hydra</span>':'';
+      card.innerHTML=`
+        <div class="atk-icon" style="color:${icClr}"><i data-lucide="${a.icon}"></i></div>
+        <div class="atk-info">
+          <div class="atk-name">${a.name}</div>
+          <div class="atk-desc">${a.description}</div>
+          <div class="atk-meta">
+            <span class="badge ${gc}">${a.group}</span>
+            <span class="badge ${rc}">${a.risk} risk</span>
+            <span class="badge b-time"><i data-lucide="clock" style="width:8px;height:8px;vertical-align:middle"></i> ${a.estimated_time}</span>
+            ${toolBadge}
+          </div>
+        </div>`;
+      list.appendChild(card);
+    });
+  });
+  // activate all lucide icons in newly rendered markup
+  if(window.lucide) lucide.createIcons();
+}
+
+function filterGroup(g,btn){
+  activeGroup=g;
+  document.querySelectorAll('.gtab').forEach(b=>b.className='gtab');
+  const cls={all:'active-all',Reconnaissance:'active-recon',Evasion:'active-evasion',Vulnerability:'active-vuln','Brute Force':'active-brute'};
+  btn.classList.add(cls[g]||'active-all');
+  renderList();
+}
+
+function selectAttack(id,group){
+  selectedAttack=id;
+  renderList(); // will re-apply .sel
+  const atk = attackTypes[id];
+  const isBrute = atk&&atk.tool==='hydra';
+  document.getElementById('bf-fields').style.display = isBrute?'block':'none';
+  const needPath = atk&&atk.requires_path;
+  const pw = document.getElementById('bf-path-wrap');
+  if(pw) pw.style.display = needPath?'block':'none';
+}
+
+// ── alert ──
+function showAlert(msg,type='err'){
+  const icons={err:'❌',ok:'✅'};
+  document.getElementById('alert-box').innerHTML=
+    `<div class="alert alert-${type}">${icons[type]||'ℹ️'} ${msg}</div>`;
+  setTimeout(()=>document.getElementById('alert-box').innerHTML='',5000);
+}
+
+// ── terminal log ──
+function termLog(msg,kind=''){
+  const term = document.getElementById('terminal');
+  const cursorLine = term.querySelector('.tl:last-child');
+  if(cursorLine) cursorLine.remove();
+  const d=document.createElement('div');
+  d.className='tl '+(kind||'');
+  d.innerHTML=`<span class="tp">soc@sim:~$</span><span>&nbsp;${esc(msg)}</span>`;
+  term.appendChild(d);
+  // cursor line
+  const c=document.createElement('div');
+  c.className='tl';
+  c.innerHTML=`<span class="tp">soc@sim:~$</span><span>&nbsp;<span class="cursor"></span></span>`;
+  term.appendChild(c);
+  term.scrollTop=term.scrollHeight;
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+function setProgress(pct,label){
+  document.getElementById('prog-fill').style.width=pct+'%';
+  document.getElementById('scan-lbl').textContent=label.toUpperCase();
+  document.getElementById('scan-pct').textContent=pct+'%';
+}
+
+// ── launch ──
+async function launchScan(){
+  const ip=document.getElementById('target-ip').value.trim();
+  if(!ip){showAlert('Target IP is required.');return}
+  if(!selectedAttack){showAlert('Select an attack type first.');return}
+
+  const btn=document.getElementById('launch-btn');
+  btn.disabled=true;
+  btn.innerHTML='<span class="spin"></span>&nbsp; RUNNING...';
+  document.getElementById('results-wrap').classList.remove('vis');
+  logSeenCount=0;
+  setProgress(0,'Initializing...');
+
+  const atk=attackTypes[selectedAttack];
+  termLog(`▶ Launching: ${atk.name}`);
+  termLog(`Target: ${ip}`);
+
+  const body={target_ip:ip,attack_type:selectedAttack};
+  if(atk.tool==='hydra'){
+    body.username=document.getElementById('bf-user').value.trim();
+    body.password=document.getElementById('bf-pass').value.trim();
+    body.userlist=document.getElementById('bf-ulist').value.trim();
+    body.passlist=document.getElementById('bf-plist').value.trim();
+    body.port    =document.getElementById('bf-port').value.trim();
+    body.http_path=document.getElementById('bf-path').value.trim();
+  }
+
+  try{
+    const res=await fetch('/api/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data=await res.json();
+    if(!res.ok){showAlert(data.error||'Failed');resetBtn();return}
+    pollScan(data.scan_id);
+  }catch(e){
+    showAlert('Cannot connect to server.');resetBtn();
+  }
+}
+
+function resetBtn(){
+  const btn=document.getElementById('launch-btn');
+  btn.disabled=false;
+  btn.innerHTML='&#x25BA;&nbsp; LAUNCH SIMULATION';
+}
+
+// ── poll ──
+function pollScan(scanId){
+  pollTimer=setInterval(async()=>{
+    try{
+      const r=await fetch(`/api/scan/${scanId}/status`);
+      const d=await r.json();
+      setProgress(d.progress,d.status);
+
+      // append new log entries
+      if(d.log&&d.log.length>logSeenCount){
+        const newLines=d.log.slice(logSeenCount);
+        newLines.forEach(entry=>{
+          const kind=entry.kind||'';
+          termLog(entry.msg,kind);
+        });
+        logSeenCount=d.log.length;
+      }
+
+      if(d.status==='completed'){
+        clearInterval(pollTimer);
+        loadResults(scanId);
+        loadHistory();
+      }else if(d.status==='error'){
+        clearInterval(pollTimer);
+        showAlert(d.error||'Scan failed');
+        setProgress(0,'ERROR');
+        resetBtn();
+      }
+    }catch(e){clearInterval(pollTimer)}
+  },1000);
+}
+
+// ── results ──
+async function loadResults(scanId){
+  const r=await fetch(`/api/scan/${scanId}/results`);
+  const d=await r.json();
+  renderResults(d);
+  resetBtn();
+}
+
+function renderResults(d){
+  const wrap=document.getElementById('results-wrap');
+  const body=document.getElementById('results-body');
+  wrap.classList.add('vis');
+
+  const type=d.type||'nmap';
+
+  // Stats row
+  let statsHtml='';
+  if(type==='nmap'){
+    statsHtml=`
+      <div class="stats-row">
+        <div class="stat-box"><div class="stat-val">${d.total_hosts}</div><div class="stat-lbl">Hosts Found</div></div>
+        <div class="stat-box"><div class="stat-val" style="color:var(--green)">${d.open_ports||0}</div><div class="stat-lbl">Open Ports</div></div>
+        <div class="stat-box"><div class="stat-val" style="color:var(--purple);font-size:13px">${d.attack_name}</div><div class="stat-lbl">Attack Type</div></div>
+        <div class="stat-box"><div class="stat-val" style="font-size:13px">${new Date(d.timestamp).toLocaleTimeString()}</div><div class="stat-lbl">Completed At</div></div>
+      </div>`;
+  }else{
+    const hasFound=d.total_found>0;
+    statsHtml=`
+      <div class="stats-row">
+        <div class="stat-box"><div class="stat-val" style="color:${hasFound?'var(--red)':'var(--green)'}">${d.total_found}</div><div class="stat-lbl">Credentials Found</div></div>
+        <div class="stat-box"><div class="stat-val" style="color:var(--purple);font-size:12px">${d.service||''}</div><div class="stat-lbl">Service</div></div>
+        <div class="stat-box"><div class="stat-val">${d.port||'—'}</div><div class="stat-lbl">Port</div></div>
+        <div class="stat-box"><div class="stat-val" style="font-size:12px">${new Date(d.timestamp).toLocaleTimeString()}</div><div class="stat-lbl">Completed At</div></div>
+      </div>`;
+  }
+
+  // Command used
+  const cmdHtml=d.command?`<div class="cmd-box"><span class="cmd-sym">$</span>${esc(d.command)}</div>`:'';
+
+  let mainHtml='';
+
+  if(type==='hydra'){
+    // Brute force results
+    const hasFound=d.found_credentials&&d.found_credentials.length>0;
+    mainHtml=`<div class="bf-results">
+      <div class="bf-found-title ${hasFound?'yes':'no'}">
+        ${hasFound?`💥 ${d.total_found} CREDENTIAL(S) CRACKED!`:'✅ No valid credentials found — target resisted the attack.'}
+      </div>
+      ${(d.found_credentials||[]).map(c=>`<div class="cred-row">${esc(c)}</div>`).join('')}
+    </div>`;
+  }else{
+    // nmap results
+    if(!d.hosts||d.hosts.length===0){
+      mainHtml=`<div class="empty"><div class="empty-ic">🔍</div><div class="empty-tx">No hosts responded. Target may be offline or blocking scans.</div></div>`;
+    }else{
+      d.hosts.forEach(host=>{
+        const upColor=host.state==='up'?'var(--green)':'var(--red)';
+        mainHtml+=`<div class="host-blk">
+          <div class="host-hdr">
+            <i data-lucide="monitor" style="width:14px;height:14px;color:var(--accent);flex-shrink:0"></i>
+            <div>
+              <div class="host-ip">${host.ip}</div>
+              ${host.hostname?`<div class="host-hn">${host.hostname}</div>`:''}
+            </div>
+            <div class="host-state">
+              <span class="badge" style="color:${upColor};background:${host.state==='up'?'rgba(16,185,129,.12)':'rgba(239,68,68,.12)'};border:1px solid ${upColor}40">● ${host.state.toUpperCase()}</span>
+            </div>
+          </div>`;
+
+        host.protocols&&host.protocols.forEach(proto=>{
+          if(!proto.ports||!proto.ports.length) return;
+          mainHtml+=`<table class="ports-tbl"><thead><tr>
+            <th>Port</th><th>Protocol</th><th>State</th><th>Service</th><th>Version / Info</th>
+          </tr></thead><tbody>`;
+          proto.ports.forEach(p=>{
+            const sc=p.state==='open'?'p-open':p.state==='closed'?'p-closed':'p-filtered';
+            const ver=[p.product,p.version,p.extrainfo].filter(Boolean).join(' ');
+            mainHtml+=`<tr>
+              <td class="p-num">${p.port}</td>
+              <td>${proto.protocol.toUpperCase()}</td>
+              <td class="${sc}">${p.state}</td>
+              <td class="p-svc">${p.name}</td>
+              <td>${esc(ver)||'<span style="color:var(--t3)">—</span>'}</td>
+            </tr>`;
+            // script output
+            if(p.script&&Object.keys(p.script).length){
+              Object.entries(p.script).forEach(([sname,sout])=>{
+                mainHtml+=`<tr><td colspan="5" style="padding:4px 14px 8px;font-size:10px;color:var(--orange);font-family:var(--mono);background:rgba(249,115,22,.04)"><b>[script:${esc(sname)}]</b> ${esc(sout)}</td></tr>`;
+              });
+            }
+          });
+          mainHtml+=`</tbody></table>`;
+        });
+
+        if(host.os_matches&&host.os_matches.length){
+          mainHtml+=`<div class="os-sec"><div class="os-title">OS Detection</div>`;
+          host.os_matches.forEach(o=>{
+            mainHtml+=`<div class="os-row"><span class="os-acc">${o.accuracy}%</span><span>${esc(o.name)}</span></div>`;
+          });
+          mainHtml+=`</div>`;
+        }
+
+        if(host.hostscript&&host.hostscript.length){
+          mainHtml+=`<div class="os-sec" style="background:rgba(249,115,22,.04)"><div class="os-title" style="color:var(--orange)">📜 Host Scripts</div>`;
+          host.hostscript.forEach(s=>{
+            mainHtml+=`<div style="font-size:11px;font-family:var(--mono);color:var(--t2);margin-bottom:6px"><span style="color:var(--orange)">[${esc(s.id)}]</span> ${esc(s.output)}</div>`;
+          });
+          mainHtml+=`</div>`;
+        }
+
+        mainHtml+=`</div>`;
+      });
+    }
+  }
+
+  body.innerHTML=statsHtml+cmdHtml+mainHtml;
+  wrap.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ── history ──
+async function loadHistory(){
+  const r=await fetch('/api/scans/history');
+  const data=await r.json();
+  const list=document.getElementById('hist-list');
+  if(!data.length){
+    list.innerHTML='<div class="empty"><div class="empty-ic">📋</div><div class="empty-tx">No scans yet</div></div>';
+    return;
+  }
+  const gcls={Reconnaissance:'b-recon',Evasion:'b-evasion',Vulnerability:'b-vuln','Brute Force':'b-brute'};
+  list.innerHTML=data.map(item=>`
+    <div class="hist-item" onclick="loadResultById('${item.scan_id}')">
+      <div class="hist-ip">${esc(item.target)}</div>
+      <div class="hist-atk">${esc(item.attack_name)}</div>
+      <span class="hist-tag badge ${gcls[item.group]||'b-recon'}">${item.group||'scan'}</span>
+      ${item.type==='hydra'?`<span class="hist-tag badge b-brute">${item.total_found} found</span>`:`<span class="hist-tag badge b-low">${item.total_hosts} host(s)</span>`}
+      <div class="hist-time">${new Date(item.timestamp).toLocaleTimeString()}</div>
+    </div>`).join('');
+}
+
+async function loadResultById(sid){
+  const r=await fetch(`/api/scan/${sid}/results`);
+  const d=await r.json();
+  renderResults(d);
+}
+
+async function clearHistory(){
+  await fetch('/api/scans/clear',{method:'DELETE'});
+  loadHistory();
+  document.getElementById('results-wrap').classList.remove('vis');
+}
+
+// ── init ──
+loadAttackTypes();
+loadHistory();
+// run lucide on static icons already in HTML
+document.addEventListener('DOMContentLoaded',()=>{ if(window.lucide) lucide.createIcons(); });
+if(document.readyState!=='loading' && window.lucide) lucide.createIcons();
+</script>
+</body>
+</html>
